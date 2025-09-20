@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangladesh Agri Data Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js for charting (Updated Version) -->
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .metric-card {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-full lg:w-72 bg-white p-6 shadow-lg lg:min-h-screen flex-shrink-0">
+            <h2 class="text-2xl font-bold mb-6 text-gray-700">Dashboard Filters</h2>
+            <div class="space-y-6">
+                <div>
+                    <label for="year-select" class="font-semibold text-gray-600 block mb-2">Select Year(s)</label>
+                    <select id="year-select" multiple class="w-full p-2 border rounded-md h-32"></select>
+                </div>
+                <div>
+                    <label for="crop-select" class="font-semibold text-gray-600 block mb-2">Select Crop(s)</label>
+                    <select id="crop-select" multiple class="w-full p-2 border rounded-md h-40"></select>
+                </div>
+                <div>
+                    <label for="division-select" class="font-semibold text-gray-600 block mb-2">Select Division(s)</label>
+                    <select id="division-select" multiple class="w-full p-2 border rounded-md h-32"></select>
+                </div>
+            </div>
+            <div class="mt-8 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                This dashboard visualizes agricultural production data based on BBS statistics.
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 lg:p-10">
+            <header class="mb-8">
+                <h1 class="text-4xl font-bold text-gray-800">🌾 Agri Data Visualization Dashboard</h1>
+                <p class="text-lg text-gray-500 mt-2">An interactive tool to analyze crop production statistics in Bangladesh.</p>
+            </header>
+
+            <!-- Key Metrics -->
+            <div id="metrics-container" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                 <div id="total-production" class="metric-card">
+                    <h3 class="text-gray-500 font-medium">Total Production (Tonnes)</h3>
+                    <p class="text-3xl font-bold text-green-600">0</p>
+                </div>
+                 <div id="avg-production" class="metric-card">
+                    <h3 class="text-gray-500 font-medium">Average Production (Tonnes)</h3>
+                    <p class="text-3xl font-bold text-blue-600">0</p>
+                </div>
+                 <div id="num-records" class="metric-card">
+                    <h3 class="text-gray-500 font-medium">Number of Records</h3>
+                    <p class="text-3xl font-bold text-indigo-600">0</p>
+                </div>
+            </div>
+
+            <hr class="my-8">
+
+            <!-- Visualizations -->
+            <div id="charts-container" class="space-y-8">
+                 <div class="bg-white p-4 rounded-lg shadow">
+                    <div id="bar-chart-container"></div>
+                 </div>
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-4 rounded-lg shadow">
+                         <div id="pie-chart-container"></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                         <div id="line-chart-container"></div>
+                    </div>
+                 </div>
+            </div>
+            <div id="no-data-warning" class="hidden text-center p-8 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-yellow-700 font-semibold">No data available for the selected filters. Please adjust your selections in the sidebar.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Embedded Data ---
+        const agriData = [
+            { Year: 2022, Division: 'Dhaka', Crop: 'Boro Rice', 'Production (Tonnes)': 4500000 },
+            { Year: 2022, Division: 'Dhaka', Crop: 'Aman Rice', 'Production (Tonnes)': 2800000 },
+            { Year: 2022, Division: 'Dhaka', Crop: 'Wheat', 'Production (Tonnes)': 350000 },
+            { Year: 2022, Division: 'Dhaka', Crop: 'Jute', 'Production (Tonnes)': 800000 },
+            { Year: 2022, Division: 'Dhaka', Crop: 'Potato', 'Production (Tonnes)': 2500000 },
+            { Year: 2022, Division: 'Chattogram', Crop: 'Boro Rice', 'Production (Tonnes)': 3800000 },
+            { Year: 2022, Division: 'Chattogram', Crop: 'Aman Rice', 'Production (Tonnes)': 3200000 },
+            { Year: 2022, Division: 'Chattogram', Crop: 'Wheat', 'Production (Tonnes)': 150000 },
+            { Year: 2022, Division: 'Chattogram', Crop: 'Jute', 'Production (Tonnes)': 400000 },
+            { Year: 2022, Division: 'Chattogram', Crop: 'Potato', 'Production (Tonnes)': 1800000 },
+            { Year: 2022, Division: 'Rajshahi', Crop: 'Boro Rice', 'Production (Tonnes)': 5200000 },
+            { Year: 2022, Division: 'Rajshahi', Crop: 'Aman Rice', 'Production (Tonnes)': 3500000 },
+            { Year: 2022, Division: 'Rajshahi', Crop: 'Wheat', 'Production (Tonnes)': 600000 },
+            { Year: 2022, Division: 'Rajshahi', Crop: 'Jute', 'Production (Tonnes)': 950000 },
+            { Year: 2022, Division: 'Rajshahi', Crop: 'Potato', 'Production (Tonnes)': 3000000 },
+            { Year: 2022, Division: 'Rangpur', Crop: 'Boro Rice', 'Production (Tonnes)': 4800000 },
+            { Year: 2022, Division: 'Rangpur', Crop: 'Aman Rice', 'Production (Tonnes)': 3100000 },
+            { Year: 2022, Division: 'Rangpur', Crop: 'Wheat', 'Production (Tonnes)': 550000 },
+            { Year: 2022, Division: 'Rangpur', Crop: 'Jute', 'Production (Tonnes)': 1200000 },
+            { Year: 2022, Division: 'Rangpur', Crop: 'Potato', 'Production (Tonnes)': 3500000 },
+            { Year: 2021, Division: 'Dhaka', Crop: 'Boro Rice', 'Production (Tonnes)': 4300000 },
+            { Year: 2021, Division: 'Dhaka', Crop: 'Aman Rice', 'Production (Tonnes)': 2750000 },
+            { Year: 2021, Division: 'Dhaka', Crop: 'Wheat', 'Production (Tonnes)': 330000 },
+            { Year: 2021, Division: 'Dhaka', Crop: 'Jute', 'Production (Tonnes)': 780000 },
+            { Year: 2021, Division: 'Dhaka', Crop: 'Potato', 'Production (Tonnes)': 2400000 },
+            { Year: 2021, Division: 'Chattogram', Crop: 'Boro Rice', 'Production (Tonnes)': 3700000 },
+            { Year: 2021, Division: 'Chattogram', Crop: 'Aman Rice', 'Production (Tonnes)': 3100000 },
+            { Year: 2021, Division: 'Chattogram', Crop: 'Wheat', 'Production (Tonnes)': 140000 },
+            { Year: 2021, Division: 'Chattogram', Crop: 'Jute', 'Production (Tonnes)': 390000 },
+            { Year: 2021, Division: 'Chattogram', Crop: 'Potato', 'Production (Tonnes)': 1750000 },
+            { Year: 2021, Division: 'Rajshahi', Crop: 'Boro Rice', 'Production (Tonnes)': 5100000 },
+            { Year: 2021, Division: 'Rajshahi', Crop: 'Aman Rice', 'Production (Tonnes)': 3400000 },
+            { Year: 2021, Division: 'Rajshahi', Crop: 'Wheat', 'Production (Tonnes)': 580000 },
+            { Year: 2021, Division: 'Rajshahi', Crop: 'Jute', 'Production (Tonnes)': 930000 },
+            { Year: 2021, Division: 'Rajshahi', Crop: 'Potato', 'Production (Tonnes)': 2900000 },
+            { Year: 2021, Division: 'Rangpur', Crop: 'Boro Rice', 'Production (Tonnes)': 4700000 },
+            { Year: 2021, Division: 'Rangpur', Crop: 'Aman Rice', 'Production (Tonnes)': 3000000 },
+            { Year: 2021, Division: 'Rangpur', Crop: 'Wheat', 'Production (Tonnes)': 530000 },
+            { Year: 2021, Division: 'Rangpur', Crop: 'Jute', 'Production (Tonnes)': 1150000 },
+            { Year: 2021, Division: 'Rangpur', Crop: 'Potato', 'Production (Tonnes)': 3400000 },
+            { Year: 2020, Division: 'Dhaka', Crop: 'Boro Rice', 'Production (Tonnes)': 4400000 },
+            { Year: 2020, Division: 'Dhaka', Crop: 'Aman Rice', 'Production (Tonnes)': 2850000 },
+            { Year: 2020, Division: 'Dhaka', Crop: 'Wheat', 'Production (Tonnes)': 340000 },
+            { Year: 2020, Division: 'Dhaka', Crop: 'Jute', 'Production (Tonnes)': 820000 },
+            { Year: 2020, Division: 'Dhaka', Crop: 'Potato', 'Production (Tonnes)': 2450000 },
+            { Year: 2020, Division: 'Chattogram', Crop: 'Boro Rice', 'Production (Tonnes)': 3750000 },
+            { Year: 2020, Division: 'Chattogram', Crop: 'Aman Rice', 'Production (Tonnes)': 3150000 },
+            { Year: 2020, Division: 'Chattogram', Crop: 'Wheat', 'Production (Tonnes)': 145000 },
+            { Year: 2020, Division: 'Chattogram', Crop: 'Jute', 'Production (Tonnes)': 410000 },
+            { Year: 2020, Division: 'Chattogram', Crop: 'Potato', 'Production (Tonnes)': 1850000 },
+            { Year: 2020, Division: 'Rajshahi', Crop: 'Boro Rice', 'Production (Tonnes)': 5150000 },
+            { Year: 2020, Division: 'Rajshahi', Crop: 'Aman Rice', 'Production (Tonnes)': 3450000 },
+            { Year: 2020, Division: 'Rajshahi', Crop: 'Wheat', 'Production (Tonnes)': 590000 },
+            { Year: 2020, Division: 'Rajshahi', Crop: 'Jute', 'Production (Tonnes)': 940000 },
+            { Year: 2020, Division: 'Rajshahi', Crop: 'Potato', 'Production (Tonnes)': 2950000 },
+            { Year: 2020, Division: 'Rangpur', Crop: 'Boro Rice', 'Production (Tonnes)': 4750000 },
+            { Year: 2020, Division: 'Rangpur', Crop: 'Aman Rice', 'Production (Tonnes)': 3050000 },
+            { Year: 2020, Division: 'Rangpur', Crop: 'Wheat', 'Production (Tonnes)': 540000 },
+            { Year: 2020, Division: 'Rangpur', Crop: 'Jute', 'Production (TonnIes)': 1180000 },
+            { Year: 2020, Division: 'Rangpur', Crop: 'Potato', 'Production (Tonnes)': 3450000 }
+        ];
+
+        // --- DOM Elements ---
+        const yearSelect = document.getElementById('year-select');
+        const cropSelect = document.getElementById('crop-select');
+        const divisionSelect = document.getElementById('division-select');
+        const chartsContainer = document.getElementById('charts-container');
+        const noDataWarning = document.getElementById('no-data-warning');
+        
+        // Metric elements
+        const totalProdElem = document.querySelector('#total-production p');
+        const avgProdElem = document.querySelector('#avg-production p');
+        const numRecordsElem = document.querySelector('#num-records p');
+
+        // --- Helper Functions ---
+        const getUniqueValues = (data, key) => [...new Set(data.map(item => item[key]))].sort((a, b) => b - a);
+        const populateSelect = (element, options, defaultSelection) => {
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = option;
+                if (defaultSelection.includes(option)) {
+                    opt.selected = true;
+                }
+                element.appendChild(opt);
+            });
+        };
+
+        const getSelectedOptions = (selectElement) => Array.from(selectElement.selectedOptions).map(opt => isNaN(parseInt(opt.value)) ? opt.value : parseInt(opt.value));
+
+        // --- Main Dashboard Update Function ---
+        function updateDashboard() {
+            const selectedYears = getSelectedOptions(yearSelect);
+            const selectedCrops = getSelectedOptions(cropSelect);
+            const selectedDivisions = getSelectedOptions(divisionSelect);
+
+            const filteredData = agriData.filter(d =>
+                selectedYears.includes(d.Year) &&
+                selectedCrops.includes(d.Crop) &&
+                selectedDivisions.includes(d.Division)
+            );
+            
+            if (filteredData.length === 0) {
+                chartsContainer.classList.add('hidden');
+                noDataWarning.classList.remove('hidden');
+                updateMetrics(0, 0, 0);
+                return;
+            }
+            chartsContainer.classList.remove('hidden');
+            noDataWarning.classList.add('hidden');
+
+
+            // Update Metrics
+            const totalProduction = filteredData.reduce((sum, item) => sum + item['Production (Tonnes)'], 0);
+            const avgProduction = totalProduction / filteredData.length;
+            updateMetrics(totalProduction, avgProduction, filteredData.length);
+
+            // Update Charts
+            drawBarChart(filteredData, selectedYears);
+            drawPieChart(filteredData);
+            drawLineChart(selectedCrops, selectedDivisions);
+        }
+
+        function updateMetrics(total, avg, count) {
+            totalProdElem.textContent = total.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            avgProdElem.textContent = avg.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            numRecordsElem.textContent = count.toLocaleString('en-US');
+        }
+
+        // --- Chart Drawing Functions ---
+        function drawBarChart(data, years) {
+            const traces = [];
+            const crops = [...new Set(data.map(d => d.Crop))];
+            const divisions = [...new Set(data.map(d => d.Division))];
+
+            crops.forEach(crop => {
+                const x_values = [];
+                const y_values = [];
+                divisions.forEach(division => {
+                    const divisionData = data.filter(d => d.Division === division && d.Crop === crop);
+                    const totalProd = divisionData.reduce((sum, item) => sum + item['Production (Tonnes)'], 0);
+                    if (totalProd > 0) {
+                        x_values.push(division);
+                        y_values.push(totalProd);
+                    }
+                });
+                traces.push({
+                    x: x_values,
+                    y: y_values,
+                    name: crop,
+                    type: 'bar'
+                });
+            });
+
+            Plotly.newPlot('bar-chart-container', traces, {
+                title: `<b>Crop Production for ${years.join(', ')}</b>`,
+                barmode: 'group',
+                xaxis: { title: 'Division' },
+                yaxis: { title: 'Production (Tonnes)' },
+                legend: { orientation: 'h', y: -0.2 }
+            }, { responsive: true });
+        }
+
+        function drawPieChart(data) {
+             const cropProduction = data.reduce((acc, curr) => {
+                acc[curr.Crop] = (acc[curr.Crop] || 0) + curr['Production (Tonnes)'];
+                return acc;
+            }, {});
+
+            Plotly.newPlot('pie-chart-container', [{
+                labels: Object.keys(cropProduction),
+                values: Object.values(cropProduction),
+                type: 'pie',
+                hole: 0.4
+            }], {
+                title: '<b>Share of Each Crop in Total Production</b>'
+            }, { responsive: true });
+        }
+        
+        function drawLineChart(selectedCrops, selectedDivisions) {
+            const trendData = agriData.filter(d => 
+                selectedCrops.includes(d.Crop) &&
+                selectedDivisions.includes(d.Division)
+            );
+            const traces = [];
+            
+            selectedCrops.forEach(crop => {
+                const cropData = trendData.filter(d => d.Crop === crop);
+                const groupedByYear = cropData.reduce((acc, curr) => {
+                    acc[curr.Year] = (acc[curr.Year] || 0) + curr['Production (Tonnes)'];
+                    return acc;
+                }, {});
+                
+                traces.push({
+                    x: Object.keys(groupedByYear).sort(),
+                    y: Object.values(groupedByYear),
+                    mode: 'lines+markers',
+                    name: crop
+                });
+            });
+
+            Plotly.newPlot('line-chart-container', traces, {
+                title: '<b>Annual Production Trend</b>',
+                xaxis: { title: 'Year' },
+                yaxis: { title: 'Total Production (Tonnes)' }
+            }, { responsive: true });
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const years = getUniqueValues(agriData, 'Year');
+            const crops = [...new Set(agriData.map(item => item.Crop))].sort();
+            const divisions = [...new Set(agriData.map(item => item.Division))].sort();
+
+            populateSelect(yearSelect, years, [years[0]]);
+            populateSelect(cropSelect, crops, ['Boro Rice', 'Potato', 'Jute']);
+            populateSelect(divisionSelect, divisions, divisions);
+
+            [yearSelect, cropSelect, divisionSelect].forEach(select => {
+                select.addEventListener('change', updateDashboard);
+            });
+
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
+
